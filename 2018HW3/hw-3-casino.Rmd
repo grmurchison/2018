@@ -11,26 +11,161 @@ In the game of [roulette](https://en.wikipedia.org/wiki/Roulette) you can bet on
 
 Let's make a quick sampling model for this simple version of roulette. You are going to bet a dollar each time you play and always bet on black. Make a sampling model for this process using the `sample` function. Write a function `roulette` that takes as an argument the number of times you play, $n$, and returns your earnings, which here we denote with $S_n$.
 
+```{r}
+
+  # For later...
+  library(dplyr)
+  library(tidyr)
+  library(ggplot2)
+  
+  # Set seed
+  set.seed(322)
+  
+  # Create roulette function
+  roulette <- function(n){
+    outcomes <- sample(c("Red", "Black", "Green"), n,
+                       replace = TRUE, prob = c(18/38, 18/38, 2/38))
+    earnings <- sum(outcomes == "Black")
+    return(earnings)
+  }
+
+```
+
 ### Question 1B
 
 Use Monte Carlo simulation to study the distribution of total earnings $S_n$ for $n = 100, 250, 500, 1000$. That is, for each value of $n$, make one or more plots to examine the distribution of earnings. Examine the plots, and describe how the expected values and standard errors change with $n$. You do not need to show us the plots. Just the code you used to create them. Hints: It's OK to use a for-loop. Think about the possible values $S_n$ can take when deciding on the `geom_histogram` parameters such as `binwidth` and `center`.
+
+```{r}
+
+  # Earnings over 1000 replications for each number of trials
+  earned <- sapply(list("a. n = 100" = 100, "b. n = 250" = 250,
+                        "c. n = 500" = 500, "d. n = 1000" = 1000),
+                  function(n) replicate(1000, {roulette(n)})) %>% as.data.frame %>% gather
+  
+  # Get mean and SD of earnings distribution for plot
+  summarystats <- group_by(earned, key) %>%
+    summarise("Mean" = mean(value), "SD" = sd(value))
+  
+  # Plot the distribution of earnings for each number of trials
+  ggplot(data = earned, aes(x = value, fill = key, col = key)) +
+    geom_histogram(binwidth = 5, center = 0) +
+    facet_grid(rows = key~.) +
+    geom_vline(data = summarystats, aes(xintercept = Mean)) +
+    geom_rect(data = summarystats, aes(xmin = Mean - SD, xmax = Mean + SD, x = NULL),
+              ymin = 0, ymax = 400, alpha = 0.6, fill = "grey", col = NA) +
+    xlab("Earnings") +
+    ylab("Number of trials") +
+    ggtitle("Distribution of roulette game earnings for various numbers of bets (1000 trials)")
+
+```
+
+  The larger the value of n, the larger expected value of S_n (indicated by a black vertical line on the plot) and the larger the standard error of S_n (one standard error above and below the mean is shaded grey on the plot).
 
 ### Question 1C
 
 Repeat Problem 1B but for the means instead of the sums. After your answer, describe the mathematical results that you can use to answer this without making plots.
 
+```{r}
+
+    # 1000 replications for each numeber of trials
+    earned_mean <- sapply(list("a. n = 100" = 100, "b. n = 250" = 250,
+                          "c. n = 500" = 500, "d. n = 1000" = 1000),
+                    function(n) replicate(1000, {roulette(n) / n})) %>%
+                  as.data.frame %>% gather
+
+    # Mean and standard deviation again
+    summarystats_mean <- group_by(earned_mean, key) %>%
+      summarise("Mean" = mean(value), "SD" = sd(value))
+    
+    # Plot the mean earnings
+    ggplot(data = earned_mean, aes(x = value, fill = key, col = key)) +
+      geom_histogram(binwidth = .010, center = 0) +
+      facet_grid(rows = key~.) +
+      geom_vline(data = summarystats_mean, aes(xintercept = Mean)) +
+      geom_rect(data = summarystats_mean, aes(xmin = Mean - SD, xmax = Mean + SD, x = NULL),
+                ymin = 0, ymax = 250, alpha = 0.6, fill = "grey", col = NA) +
+      xlab("Earnings") +
+      ylab("Number of trials") +
+      ggtitle("Distribution of roulette game earnings for various numbers of bets (1000 trials)") 
+
+```
+
+  In this case, the expected values are all the same (the means themselves are similar but not identical due to sampling variation) and the standard error gets smaller with larger numbers of draws. 
+    
+  If we wanted to determine these values mathematically we could first calculate the expected value of the sum of earnings for a given number of draws: 
+  $$ E(S_n)=(\frac{18}{38} \times \$ 1 + \frac{20}{38} \times -\$1) \times n=-\$0.053 \times n $$
+  
+  We can also get the standard deviation of the earnings: $$ |-1-1|\times \sqrt{\frac{20}{38}\times\frac{18}{38}}=0.9986 $$
+  
+  And use the standard deviation to get the standard error of the sum of the earnings:
+  $$ \sqrt{n}  \times 0.9986 $$
+  
+  We see that the expected value of the sum is a negative constant times n, so it makes sense that we saw the expected value of the sum getting more negative as n increased. We also see that the standard error of the sum is a constant (just under 1) times the square root of n, so again it makes sense that the standard error of the sum got larger as n increased.
+  
+  However, now we are interested in the expected value and standard error of the mean rather than the sum. The mean is just the sum divided by n, and we know that the standard error of a random variable times a consant is just the random variable's standard error times a constant, so our new standard error for the mean is:
+
+ $$ \frac{\sqrt{n}  \times 0.9986}{n} =\frac{.9986}{\sqrt{n}} $$
+
+  We see that the standard error will be smaller for larger n.
+
+  Even more simply, the expected value of a random variable times a constant is just the expected value of the random variable times the constant, so we can divide our expected value for the sum by n to get our expected value for the mean:
+  
+  $$ \frac{-\$0.053 \times n}{n}=-\$0.0053 $$
+
+  This no longer depends on n, so it is the same regardless of the number of trials.
+
 ### Question 1D
 
 Now think of a sampling model for our casino problem. What is the expected value of our sampling model? What is the standard deviation of our sampling model?
+
+  Expected value: $$ E(S_n)=(\frac{18}{38} \times \$ 1 + \frac{20}{38} \times -\$1) \times n=-\$0.053 \times n $$
+  
+  Standard deviation: $$ |-1-1|\times \sqrt{\frac{20}{38}\times\frac{18}{38}}=0.9986 $$
 
 ### Question 1E
 
 Suppose you play 100 times. Use the Central Limit Theorem (CLT) to approximate the probability that the casino loses money. Then use a Monte Carlo simulation to corroborate your finding.
 
+```{r}
+
+  # Using our mean and SD from above, for 100 rounds, and using the CLT to assume normal distribution
+  pnorm(0,
+        mean = ((18/38)-(20/38)) * 100,
+        sd = 2*sqrt((20/38)*(18/38)) * sqrt(100),
+        lower.tail = FALSE)
+
+  # Monte Carlo simulation using the function we created earlier
+  # (if we win money, the casino loses money)
+  mean(replicate(10000, {roulette(100) > 0}))
+
+
+```
+
+  Indeed, we see similar results from the CLT approximation and the Monte Carlo simulation. The results are not exactly the same since the CLT is only asymptotically correct and we only had 100 trials.
+
 ### Question 1F
 
 In general, what is the probability that the casino loses money as a function of $n$? Make a plot for values ranging from 25 to 1,000. Why does the casino give you free drinks if you keep playing?
 
+```{r}
+
+  # Relying on the CLT, use the normal distribution to
+  # approximate probabilities for 25 to 100 plays
+  p_of_n <- sapply(25:1000, function(n) {pnorm(0,
+        mean = ((18/38)-(20/38)) * n,
+        sd = 2*sqrt((20/38)*(18/38)) * sqrt(n),
+        lower.tail = FALSE)}) %>% data.frame(n = 25:1000, p = .)
+
+  # Plot our probabilities
+  ggplot(data = p_of_n, aes(x = n, y = p)) +
+    geom_line() +
+    ylab("Probability that the casino loses money") +
+    xlab("Number of plays") +
+    ggtitle("Probability that the casino loses money by number of plays")
+
+```
+
+  The casino wants players to play more rounds because the casino's probability of losing money declines as more rounds are played!
 
 # Question 2
 
@@ -40,14 +175,67 @@ The baseball playoffs are about to start. During the first round of the playoffs
 
 The Red Sox and Astros are playing a five game series. Assume they are equally good. This means each game is like a coin toss. Build a Monte Carlo simulation to determine the probability that the Red Sox win the series. (Hint: start by creating a function `series_outcome` similar to the `roulette` function from Problem 1A.)
 
+```{r}
+
+  # Function for the series winner
+  series_outcome <- function(n, prob_sox) {
+    winner <- sample(c("Red Sox", "Astros"),
+                     n, replace = TRUE, prob = c(prob_sox, 1 - prob_sox))
+    team <- names(table(winner))[which(table(winner) > n/2)]
+    return(team)
+  }
+
+  # Simulate the series 1000 times with equal teams
+  mean(replicate(10000, {series_outcome(5, .5) == "Red Sox"}))
+
+```
+
 ### Question 2B
 
 The answer to Problem 2A is not surprising. What if one of the teams is better? Compute the probability that the Red Sox win the series if the Astros are better and have a 60% of winning each game.
+
+```{r}
+
+  # Monte Carlo simulation with unequal teams
+  mean(replicate(10000, {series_outcome(5, .4) == "Red Sox"}))
+
+  # Or from the binomial distribution
+  pbinom(2, 5, prob = 0.4, lower.tail = FALSE)
+
+```
 
 ### Question 2C 
 
 How does this probability change if instead of five games, they play seven? How about three? What law did you learn that explains this?
 
+```{r}
+
+  # Seven game series simulation
+  mean(replicate(10000, {series_outcome(7, .4) == "Red Sox"}))
+
+  # Or seven-game series from the binomial distribution
+  pbinom(3, 7, prob = 0.4, lower.tail = FALSE)
+
+  # Three game series simulation
+  mean(replicate(10000, {series_outcome(3, .4) == "Red Sox"}))
+  
+  # Or three-game series from the binomial distribution
+  pbinom(1, 3, prob = 0.4, lower.tail = FALSE)
+
+```
+
+  The probability is lower with more (7) games and higher with fewer (3) games. This corresponds to the law of large numbers, which tells us that as the number of draws (games) increases, the average of the draws converges to the average of the probability distribution, which in this case is 0.40. This means that the proportion of games the Red Sox win converges on 40%, which means that their probability of winning the series (which requires winning more than half of the games) gets lower and lower.
+
 ### Question 2D
 
 Now, assume again that the two teams are equally good. What is the probability that the Red Sox still win the series if they lose the first game? Do this for a five game and seven game series.
+
+```{r}
+
+# Five-game series: need to win three of four remaining games
+pbinom(2, 4, prob = 0.5, lower.tail = FALSE)
+
+# Seven-game series: need to win four of six remaining games
+pbinom(3, 6, prob = 0.5, lower.tail = FALSE)
+
+```
