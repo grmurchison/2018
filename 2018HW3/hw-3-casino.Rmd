@@ -18,14 +18,11 @@ Let's make a quick sampling model for this simple version of roulette. You are g
   library(tidyr)
   library(ggplot2)
   
-  # Set seed
-  set.seed(322)
-  
   # Create roulette function
   roulette <- function(n){
     outcomes <- sample(c("Red", "Black", "Green"), n,
                        replace = TRUE, prob = c(18/38, 18/38, 2/38))
-    earnings <- sum(outcomes == "Black")
+    earnings <- sum(outcomes == "Black") * 2
     return(earnings)
   }
 
@@ -55,7 +52,7 @@ Use Monte Carlo simulation to study the distribution of total earnings $S_n$ for
               ymin = 0, ymax = 400, alpha = 0.6, fill = "grey", col = NA) +
     xlab("Earnings") +
     ylab("Number of trials") +
-    ggtitle("Distribution of roulette game earnings for various numbers of bets (1000 trials)")
+    ggtitle("Distribution of total roulette game earnings for various numbers of bets")
 
 ```
 
@@ -86,23 +83,23 @@ Repeat Problem 1B but for the means instead of the sums. After your answer, desc
                 ymin = 0, ymax = 250, alpha = 0.6, fill = "grey", col = NA) +
       xlab("Earnings") +
       ylab("Number of trials") +
-      ggtitle("Distribution of roulette game earnings for various numbers of bets (1000 trials)") 
+      ggtitle("Distribution of mean roulette game earnings for various numbers of bets") 
 
 ```
 
   In this case, the expected values are all the same (the means themselves are similar but not identical due to sampling variation) and the standard error gets smaller with larger numbers of draws. 
     
   If we wanted to determine these values mathematically we could first calculate the expected value of the sum of earnings for a given number of draws: 
-  $$ E(S_n)=(\frac{18}{38} \times \$ 1 + \frac{20}{38} \times -\$1) \times n=-\$0.053 \times n $$
+  $$ (\frac{18}{38} \times \$ 2) \times n=\$0.9473 \times n $$
   
-  We can also get the standard deviation of the earnings: $$ |-1-1|\times \sqrt{\frac{20}{38}\times\frac{18}{38}}=0.9986 $$
+  We can also get the standard deviation of the earnings: $$ |2-0|\times \sqrt{\frac{18}{38}\times\frac{20}{38}}=0.9986 $$
   
   And use the standard deviation to get the standard error of the sum of the earnings:
   $$ \sqrt{n}  \times 0.9986 $$
   
-  We see that the expected value of the sum is a negative constant times n, so it makes sense that we saw the expected value of the sum getting more negative as n increased. We also see that the standard error of the sum is a constant (just under 1) times the square root of n, so again it makes sense that the standard error of the sum got larger as n increased.
+  We see that the expected value of the sum is a positive constant times n, so it makes sense that we saw the expected value of the sum getting larger as n increased. We also see that the standard error of the sum is a constant (less than 1) times the square root of n, so again it makes sense that the standard error of the sum got larger as n increased.
   
-  However, now we are interested in the expected value and standard error of the mean rather than the sum. The mean is just the sum divided by n, and we know that the standard error of a random variable times a consant is just the random variable's standard error times a constant, so our new standard error for the mean is:
+  However, now we are interested in the expected value and standard error of the mean rather than the sum. The mean is just the sum divided by n, and we know that the standard error of a random variable times a constant is just the random variable's standard error times a constant, so our new standard error for the mean is:
 
  $$ \frac{\sqrt{n}  \times 0.9986}{n} =\frac{.9986}{\sqrt{n}} $$
 
@@ -110,7 +107,7 @@ Repeat Problem 1B but for the means instead of the sums. After your answer, desc
 
   Even more simply, the expected value of a random variable times a constant is just the expected value of the random variable times the constant, so we can divide our expected value for the sum by n to get our expected value for the mean:
   
-  $$ \frac{-\$0.053 \times n}{n}=-\$0.0053 $$
+  $$ \frac{\$0.9986 \times n}{n}=\$0.9986 $$
 
   This no longer depends on n, so it is the same regardless of the number of trials.
 
@@ -118,9 +115,11 @@ Repeat Problem 1B but for the means instead of the sums. After your answer, desc
 
 Now think of a sampling model for our casino problem. What is the expected value of our sampling model? What is the standard deviation of our sampling model?
 
-  Expected value: $$ E(S_n)=(\frac{18}{38} \times \$ 1 + \frac{20}{38} \times -\$1) \times n=-\$0.053 \times n $$
+The following represent the gain/loss for the casino:
+
+  Expected value: $$ E(Earnings_n)=(\frac{18}{38} \times -\$ 1 + \frac{20}{38} \times \$1) \times n=\$0.5263 \times n $$
   
-  Standard deviation: $$ |-1-1|\times \sqrt{\frac{20}{38}\times\frac{18}{38}}=0.9986 $$
+  Standard deviation: $$ SD(Earnings_n) = |-1-1|\times \sqrt{\frac{20}{38}\times\frac{18}{38}}=2\times0.4993=0.9986 $$
 
 ### Question 1E
 
@@ -128,16 +127,25 @@ Suppose you play 100 times. Use the Central Limit Theorem (CLT) to approximate t
 
 ```{r}
 
-  # Using our mean and SD from above, for 100 rounds, and using the CLT to assume normal distribution
+  # Using our mean and SD from above, for 100 rounds,
+  # and using the CLT to assume normal distribution
   pnorm(0,
         mean = ((18/38)-(20/38)) * 100,
         sd = 2*sqrt((20/38)*(18/38)) * sqrt(100),
         lower.tail = FALSE)
 
-  # Monte Carlo simulation using the function we created earlier
-  # (if we win money, the casino loses money)
-  mean(replicate(10000, {roulette(100) > 0}))
-
+  # Monte Carlo simulation using a version of the function we created earlier,
+  # but for the casino's net gain/loss rather than player's earnings
+  casino_earnings <- function(n){
+    outcomes <- sample(c("Red", "Black", "Green"), n,
+                       replace = TRUE, prob = c(18/38, 18/38, 2/38))
+    # Casino gets a dollar for each bet and pays out $2 for each black spin
+    earnings <- sum(outcomes == "Black") * -2 + n
+    return(earnings)
+  }
+  # Run the function 1000 times, return TRUE (1) if casino loses money
+  # and take the mean of the results
+  mean(replicate(1000, {casino_earnings(100) < 0}))
 
 ```
 
@@ -186,7 +194,7 @@ The Red Sox and Astros are playing a five game series. Assume they are equally g
   }
 
   # Simulate the series 1000 times with equal teams
-  mean(replicate(10000, {series_outcome(5, .5) == "Red Sox"}))
+  mean(replicate(1000, {series_outcome(5, .5) == "Red Sox"}))
 
 ```
 
@@ -197,7 +205,7 @@ The answer to Problem 2A is not surprising. What if one of the teams is better? 
 ```{r}
 
   # Monte Carlo simulation with unequal teams
-  mean(replicate(10000, {series_outcome(5, .4) == "Red Sox"}))
+  mean(replicate(1000, {series_outcome(5, .4) == "Red Sox"}))
 
   # Or from the binomial distribution
   pbinom(2, 5, prob = 0.4, lower.tail = FALSE)
@@ -211,13 +219,13 @@ How does this probability change if instead of five games, they play seven? How 
 ```{r}
 
   # Seven game series simulation
-  mean(replicate(10000, {series_outcome(7, .4) == "Red Sox"}))
+  mean(replicate(1000, {series_outcome(7, .4) == "Red Sox"}))
 
   # Or seven-game series from the binomial distribution
   pbinom(3, 7, prob = 0.4, lower.tail = FALSE)
 
   # Three game series simulation
-  mean(replicate(10000, {series_outcome(3, .4) == "Red Sox"}))
+  mean(replicate(1000, {series_outcome(3, .4) == "Red Sox"}))
   
   # Or three-game series from the binomial distribution
   pbinom(1, 3, prob = 0.4, lower.tail = FALSE)
@@ -232,10 +240,10 @@ Now, assume again that the two teams are equally good. What is the probability t
 
 ```{r}
 
-# Five-game series: need to win three of four remaining games
-pbinom(2, 4, prob = 0.5, lower.tail = FALSE)
+  # Five-game series: need to win three of four remaining games
+  pbinom(2, 4, prob = 0.5, lower.tail = FALSE)
 
-# Seven-game series: need to win four of six remaining games
-pbinom(3, 6, prob = 0.5, lower.tail = FALSE)
+  # Seven-game series: need to win four of six remaining games
+  pbinom(3, 6, prob = 0.5, lower.tail = FALSE)
 
 ```
